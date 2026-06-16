@@ -22,7 +22,9 @@ line, not a recompile.
 
 ## Screenshots
 
-![viewer — table](img/screenshot-table.png)
+![viewer — spreadsheet table](img/screenshot-table.png)
+![viewer — syntax-highlighted code](img/screenshot-code.png)
+![viewer — slide deck](img/screenshot-slides.png)
 ![viewer — inline image](img/screenshot-image.png)
 
 ## Features
