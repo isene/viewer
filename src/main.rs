@@ -25,6 +25,7 @@ const KEYS: &[(&str, &str)] = &[
     ("g  G", "top / bottom"),
     ("PgUp PgDn", "page up / down"),
     ("e  Enter", "edit \u{2014} launch the right editor"),
+    ("c", "edit with Claude (uses the file-type skill)"),
     ("x", "open externally (xdg-open)"),
     ("o", "browse files (pointer)"),
     ("?", "show this help"),
@@ -114,7 +115,7 @@ impl App {
         self.top.say(&top);
         let edit_hint = if handler.edit.is_some() { "e edit" } else { "e open" };
         let foot = if self.status.is_empty() {
-            format!(" j/k scroll  {}  x open  o browse  ? keys  q quit   viewer {}", edit_hint, VERSION)
+            format!(" j/k scroll  {}  c Claude  x open  o browse  ? keys  q quit   viewer {}", edit_hint, VERSION)
         } else {
             format!(" {}", self.status)
         };
@@ -229,6 +230,42 @@ impl App {
         self.load_view();
     }
 
+    /// Edit with an integrated Claude session. Seeds `claude` with the file path
+    /// and the user's instruction; the matching Claude Code skill (pptx / docx /
+    /// xlsx / pdf …) activates by file type and edits in place, preserving layout.
+    fn ai_edit(&mut self) {
+        let Some((path, _)) = self.file.clone() else { return };
+        let abs = path.canonicalize().unwrap_or_else(|_| path.clone());
+        let instr = match self.foot.ask_or_cancel("Claude edit \u{2014} what to change: ", "") {
+            Some(s) => s,
+            None => return, // cancelled
+        };
+        let prompt = if instr.trim().is_empty() {
+            format!(
+                "Edit the file {}, preserving its existing layout and formatting. Ask me what changes I want.",
+                abs.display()
+            )
+        } else {
+            format!(
+                "Edit the file {} \u{2014} {}. Preserve its existing layout and formatting as much as possible.",
+                abs.display(),
+                instr.trim()
+            )
+        };
+        self.clear_image();
+        Crust::cleanup();
+        let mut cmd = Command::new("claude");
+        cmd.arg(prompt);
+        if let Some(dir) = abs.parent() {
+            cmd.current_dir(dir);
+        }
+        let _ = cmd.status();
+        Crust::init();
+        Crust::clear_screen();
+        self.status.clear();
+        self.load_view();
+    }
+
     fn edit_argv(&self) -> Option<Vec<String>> {
         let handler = &self.file.as_ref()?.1;
         let raw = match &handler.edit {
@@ -260,6 +297,7 @@ impl App {
             "g" | "HOME" => self.body.top(),
             "G" | "END" => self.body.bottom(),
             "e" | "ENTER" => self.launch_edit(),
+            "c" => self.ai_edit(),
             "x" => self.xdg_open(),
             "?" => self.show_help(),
             "o" => {

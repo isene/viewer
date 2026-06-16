@@ -41,6 +41,9 @@ line, not a recompile.
   HyperList, LaTeX).
 - **Launches the right editor** — `e` opens grid / scribe / `$EDITOR` per type;
   `x` opens with the system default (xdg-open).
+- **AI editing** — `c` opens an integrated
+  [Claude Code](https://claude.com/claude-code) session seeded with the file; the
+  matching skill (pptx / docx / xlsx / pdf) edits it in place, preserving layout.
 - **Browse** — `o` (or launching with no file) opens
   [pointer](https://github.com/isene/pointer) as the file picker.
 - Config-driven and extensible via `~/.config/viewer/handlers.conf`.
@@ -73,6 +76,7 @@ viewer              # no file → browse with pointer
 | `g` `G` | top / bottom |
 | `PgUp` `PgDn` | page |
 | `e` `Enter` | edit — launch the right editor |
+| `c` | edit with Claude (uses the file-type skill) |
 | `x` | open externally (xdg-open) |
 | `o` | browse files (pointer) |
 | `?` | help |
