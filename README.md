@@ -2,7 +2,7 @@
 
 <img src="img/viewer.svg" align="left" width="150" height="150">
 
-![Version](https://img.shields.io/badge/version-0.1.1-blue) ![Rust](https://img.shields.io/badge/language-Rust-f74c00) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
+![Version](https://img.shields.io/badge/version-0.1.2-blue) ![Rust](https://img.shields.io/badge/language-Rust-f74c00) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
 
 A universal read-only file viewer for the terminal. Point it at almost any file
 — spreadsheet, document, slide deck, PDF, image, code — and it renders a clean
@@ -44,6 +44,9 @@ line, not a recompile.
 - **AI editing** — `c` opens an integrated
   [Claude Code](https://claude.com/claude-code) session seeded with the file; the
   matching skill (pptx / docx / xlsx / pdf) edits it in place, preserving layout.
+  For slide decks it keeps a **live PDF preview** in sync: Claude re-renders
+  with `slidepreview` after each change, and a single zathura window
+  (opened once, placed wherever you like) auto-reloads it.
 - **Browse** — `o` (or launching with no file) opens
   [pointer](https://github.com/isene/pointer) as the file picker.
 - Config-driven and extensible via `~/.config/viewer/handlers.conf`.

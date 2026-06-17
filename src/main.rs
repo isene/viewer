@@ -234,13 +234,13 @@ impl App {
     /// and the user's instruction; the matching Claude Code skill (pptx / docx /
     /// xlsx / pdf …) activates by file type and edits in place, preserving layout.
     fn ai_edit(&mut self) {
-        let Some((path, _)) = self.file.clone() else { return };
+        let Some((path, handler)) = self.file.clone() else { return };
         let abs = path.canonicalize().unwrap_or_else(|_| path.clone());
         let instr = match self.foot.ask_or_cancel("Claude edit \u{2014} what to change: ", "") {
             Some(s) => s,
             None => return, // cancelled
         };
-        let prompt = if instr.trim().is_empty() {
+        let mut prompt = if instr.trim().is_empty() {
             format!(
                 "Edit the file {}, preserving its existing layout and formatting. Ask me what changes I want.",
                 abs.display()
@@ -252,6 +252,15 @@ impl App {
                 instr.trim()
             )
         };
+        // Slide decks: keep a live PDF preview in sync. Tell Claude to
+        // re-render after every change; `slidepreview` rebuilds the PDF and
+        // zathura (opened once on another workspace) auto-reloads it.
+        if matches!(handler.kind, Kind::Slides) {
+            prompt.push_str(&format!(
+                " This is a slide deck. After each change you make to it, run `slidepreview {}` in the shell so my live PDF preview refreshes. Run it once now to show the current state.",
+                abs.display()
+            ));
+        }
         self.clear_image();
         Crust::cleanup();
         let mut cmd = Command::new("claude");

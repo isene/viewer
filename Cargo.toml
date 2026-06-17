@@ -1,6 +1,6 @@
 [package]
 name = "viewer"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Geir Isene <g@isene.com>"]
 description = "Universal TUI file viewer — read-only preview of any office/text/data file, launches the right editor. Config-driven, expandable. Part of the Fe2O3 Rust terminal suite."
