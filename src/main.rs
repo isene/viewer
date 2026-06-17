@@ -24,7 +24,7 @@ const KEYS: &[(&str, &str)] = &[
     ("j k  \u{2191}\u{2193}", "scroll"),
     ("g  G", "top / bottom"),
     ("PgUp PgDn", "page up / down"),
-    ("e  Enter", "edit \u{2014} launch the right editor"),
+    ("e  Enter", "edit \u{2014} right editor (slide decks \u{2192} Claude)"),
     ("c", "edit with Claude (uses the file-type skill)"),
     ("x", "open externally (xdg-open)"),
     ("o", "browse files (pointer)"),
@@ -212,7 +212,12 @@ impl App {
     }
 
     fn launch_edit(&mut self) {
-        let Some((path, _)) = self.file.clone() else { return };
+        let Some((path, handler)) = self.file.clone() else { return };
+        // Slide decks have no sensible text editor — `e`/Enter opens the
+        // Claude session (with the live PDF preview) instead.
+        if matches!(handler.kind, Kind::Slides) {
+            return self.ai_edit();
+        }
         let argv = match self.edit_argv() {
             Some(a) => a,
             None => {
