@@ -25,7 +25,7 @@ const KEYS: &[(&str, &str)] = &[
     ("g  G", "top / bottom"),
     ("PgUp PgDn", "page up / down"),
     ("e  Enter", "edit \u{2014} right editor (slide decks \u{2192} Claude)"),
-    ("c", "edit with Claude (uses the file-type skill)"),
+    ("Ctrl+a", "edit with Claude — full session (uses the file-type skill)"),
     ("x", "open externally (xdg-open)"),
     ("o", "browse files (pointer)"),
     ("?", "show this help"),
@@ -311,7 +311,7 @@ impl App {
             "g" | "HOME" => self.body.top(),
             "G" | "END" => self.body.bottom(),
             "e" | "ENTER" => self.launch_edit(),
-            "c" => self.ai_edit(),
+            "C-A" => self.ai_edit(), // Fe2O3-standard: full CC session (interactive)
             "x" => self.xdg_open(),
             "?" => self.show_help(),
             "o" => {

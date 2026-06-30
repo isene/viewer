@@ -41,7 +41,7 @@ line, not a recompile.
   HyperList, LaTeX).
 - **Launches the right editor** — `e` opens grid / scribe / `$EDITOR` per type;
   `x` opens with the system default (xdg-open).
-- **AI editing** — `c` opens an integrated
+- **AI editing** — `Ctrl+A` opens an integrated
   [Claude Code](https://claude.com/claude-code) session seeded with the file; the
   matching skill (pptx / docx / xlsx / pdf) edits it in place, preserving layout.
   For slide decks it keeps a **live PDF preview** in sync: Claude re-renders
@@ -79,7 +79,7 @@ viewer              # no file → browse with pointer
 | `g` `G` | top / bottom |
 | `PgUp` `PgDn` | page |
 | `e` `Enter` | edit — launch the right editor (slide decks open the Claude session) |
-| `c` | edit with Claude (uses the file-type skill) |
+| `Ctrl+A` | edit with Claude — full session (uses the file-type skill) |
 | `x` | open externally (xdg-open) |
 | `o` | browse files (pointer) |
 | `?` | help |
