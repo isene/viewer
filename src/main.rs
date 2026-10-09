@@ -24,6 +24,7 @@ const KEYS: &[(&str, &str)] = &[
     ("j k  \u{2191}\u{2193}", "scroll"),
     ("g  G", "top / bottom"),
     ("PgUp PgDn", "page up / down"),
+    ("/  n N", "find a word / next, previous"),
     ("e  Enter", "edit \u{2014} right editor (slide decks \u{2192} Claude)"),
     ("Ctrl+a", "edit with Claude — full session (uses the file-type skill)"),
     ("x", "open externally (xdg-open)"),
@@ -42,18 +43,29 @@ struct App {
     body: Pane,
     foot: Pane,
     status: String,
+    /// The file as text, as `render` gave it. Empty for a picture.
+    text: String,
+    /// The word being looked for, in lower case. Empty: none.
+    word: String,
+    /// The rows of the body that have the word, and which one we are at.
+    hits: Vec<usize>,
+    hit: usize,
 }
 
 impl App {
     fn new() -> Self {
         let (term_w, term_h) = Crust::terminal_size();
         let (top, body, foot) = make_panes(term_w, term_h);
-        App { file: None, img: None, img_shown: false, term_w, term_h, top, body, foot, status: String::new() }
+        App {
+            file: None, img: None, img_shown: false, term_w, term_h, top, body, foot,
+            status: String::new(), text: String::new(), word: String::new(), hits: Vec::new(), hit: 0,
+        }
     }
 
     fn open_file(&mut self, path: PathBuf) {
         let handler = registry::Registry::load().lookup(&path);
         self.file = Some((path, handler));
+        self.word.clear();
         self.load_view();
     }
 
@@ -67,11 +79,70 @@ impl App {
         self.body.wrap = wrap;
         self.body.word_wrap = wrap;
         if handler.kind == Kind::Image {
+            self.text.clear();
             self.show_image(&path);
         } else {
-            let content = render::render(&path, handler.kind);
-            self.body.ix = 0;
-            self.body.say(&content);
+            self.text = render::render(&path, handler.kind);
+            self.say_text(0);
+        }
+        self.draw_chrome();
+    }
+
+    /// Put the text in the body with the word marked, scrolled to `ix`,
+    /// and note the rows that have the word.
+    fn say_text(&mut self, ix: usize) {
+        if self.word.is_empty() {
+            self.body.set_text(&self.text);
+            self.hits.clear();
+        } else {
+            let word: Vec<char> = self.word.chars().collect();
+            let marked: Vec<String> = self.text.lines().map(|l| mark(l, &word)).collect();
+            self.body.set_text(&marked.join("\n"));
+            self.hits = self.body.visual_lines().iter().enumerate()
+                .filter(|(_, row)| crust::strip_ansi(row).to_lowercase().contains(&self.word))
+                .map(|(i, _)| i)
+                .collect();
+        }
+        self.body.ix = ix;
+        self.body.refresh();
+    }
+
+    /// `/`: ask for a word, mark it and go to the first row that has it at
+    /// or below the top of the screen. An empty answer takes the marks off.
+    fn find(&mut self) {
+        if self.text.is_empty() {
+            self.status = "a picture has no words to find".into();
+            return self.draw_chrome();
+        }
+        let asked = self.foot.ask_or_cancel("/", "");
+        self.foot.invalidate();
+        let Some(word) = asked else { return self.draw_chrome() };
+        self.word = word.trim().to_lowercase();
+        let top = self.body.ix;
+        self.say_text(top);
+        if self.word.is_empty() {
+            return self.draw_chrome();
+        }
+        // The one before the first hit in view, so that step(1) lands on it.
+        let first = self.hits.iter().position(|&row| row >= top).unwrap_or(0);
+        self.hit = (first + self.hits.len().max(1) - 1) % self.hits.len().max(1);
+        self.step(1);
+    }
+
+    /// `n` and `N`: to the next or the previous row with the word, around
+    /// the ends.
+    fn step(&mut self, by: isize) {
+        if self.word.is_empty() {
+            self.status = "nothing to find yet: / asks for a word".into();
+        } else if self.hits.is_empty() {
+            self.status = format!("not in this file: {}", self.word);
+        } else {
+            let n = self.hits.len() as isize;
+            self.hit = (self.hit as isize + by).rem_euclid(n) as usize;
+            let last = self.body.visual_line_count().saturating_sub(self.body.h as usize);
+            self.body.ix = self.hits[self.hit].saturating_sub(2).min(last);
+            self.body.refresh();
+            self.status = format!("{}: row {} of {} with it   n next  N previous", self.word, self.hit + 1, n);
         }
         self.draw_chrome();
     }
@@ -115,7 +186,7 @@ impl App {
         self.top.say(&top);
         let edit_hint = if handler.edit.is_some() { "e edit" } else { "e open" };
         let foot = if self.status.is_empty() {
-            format!(" j/k scroll  {}  c Claude  x open  o browse  ? keys  q quit   viewer {}", edit_hint, VERSION)
+            format!(" j/k scroll  / find  {}  C-a Claude  x open  o browse  ? keys  q quit   viewer {}", edit_hint, VERSION)
         } else {
             format!(" {}", self.status)
         };
@@ -310,6 +381,9 @@ impl App {
             "PgUP" | "b" => self.body.pageup(),
             "g" | "HOME" => self.body.top(),
             "G" | "END" => self.body.bottom(),
+            "/" => self.find(),
+            "n" => self.step(1),
+            "N" => self.step(-1),
             "e" | "ENTER" => self.launch_edit(),
             "C-A" => self.ai_edit(), // Fe2O3-standard: full CC session (interactive)
             "x" => self.xdg_open(),
@@ -326,6 +400,62 @@ impl App {
             _ => {}
         }
         true
+    }
+}
+
+/// `line` with every `word` in it shown in reverse. `word` is in lower
+/// case. The colour codes of the line stay where they are, and a match
+/// keeps its mark across them.
+fn mark(line: &str, word: &[char]) -> String {
+    let bytes = line.as_bytes();
+    // Each character on screen: where it starts and ends in `line`.
+    let mut shown: Vec<(usize, usize, char)> = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == 0x1b {
+            i = after_escape(bytes, i);
+            continue;
+        }
+        let c = line[i..].chars().next().unwrap_or(' ');
+        shown.push((i, i + c.len_utf8(), c.to_lowercase().next().unwrap_or(c)));
+        i += c.len_utf8();
+    }
+    let mut out = String::with_capacity(line.len() + 16);
+    let (mut copied, mut k) = (0, 0);
+    while !word.is_empty() && k + word.len() <= shown.len() {
+        let here = &shown[k..k + word.len()];
+        if !here.iter().map(|s| s.2).eq(word.iter().copied()) {
+            k += 1;
+            continue;
+        }
+        out.push_str(&line[copied..here[0].0]);
+        copied = here[0].0;
+        for s in here {
+            // A colour code in the middle of a match may switch the mark
+            // off, so it is switched on again after each one.
+            out.push_str(&line[copied..s.0]);
+            out.push_str(style::REVERSE);
+            out.push_str(&line[s.0..s.1]);
+            copied = s.1;
+        }
+        out.push_str(style::REVERSE_OFF);
+        k += word.len();
+    }
+    out.push_str(&line[copied..]);
+    out
+}
+
+/// The index just past the escape sequence that starts at `i`.
+fn after_escape(b: &[u8], i: usize) -> usize {
+    match b.get(i + 1) {
+        // Colours and the like: up to the letter that ends them.
+        Some(b'[') => (i + 2..b.len()).find(|&j| (0x40..=0x7e).contains(&b[j])).map_or(b.len(), |j| j + 1),
+        // Links and titles: up to a bell, or ESC and a backslash.
+        Some(b']') => (i + 2..b.len())
+            .find(|&j| b[j] == 0x07 || (b[j] == 0x1b && b.get(j + 1) == Some(&b'\\')))
+            .map_or(b.len(), |j| if b[j] == 0x07 { j + 1 } else { j + 2 }),
+        Some(_) => i + 2,
+        None => b.len(),
     }
 }
 
@@ -375,4 +505,37 @@ fn main() {
     }
     app.clear_image();
     Crust::cleanup();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn word(w: &str) -> Vec<char> { w.chars().collect() }
+
+    #[test]
+    fn a_word_is_marked_wherever_it_stands_whatever_its_case() {
+        let (on, off) = (style::REVERSE, style::REVERSE_OFF);
+        assert_eq!(mark("The cat and the Cat", &word("cat")),
+                   format!("The {on}c{on}a{on}t{off} and the {on}C{on}a{on}t{off}"));
+        assert_eq!(mark("no such thing", &word("cat")), "no such thing");
+        assert_eq!(mark("blåbær og BLÅBÆR", &word("blåbær")).matches(off).count(), 2);
+        assert_eq!(mark("anything", &[]), "anything");
+    }
+
+    #[test]
+    fn a_match_keeps_its_mark_across_colour_codes() {
+        // "foobar" in two colours, as a syntax highlighter writes it.
+        let line = format!("{}{}", style::fg("foo", 81), style::fg("bar", 220));
+        let got = mark(&line, &word("oba"));
+        assert_eq!(crust::strip_ansi(&got), "foobar", "the text is as it was");
+        // Every letter of the match has the mark switched on just before it.
+        for letter in ["o", "b", "a"] {
+            assert!(got.contains(&format!("{}{}", style::REVERSE, letter)), "{letter} in {got:?}");
+        }
+        assert_eq!(got.matches(style::REVERSE_OFF).count(), 1);
+        // A link around the word is skipped as one piece.
+        let link = style::hyperlink("https://example.org/cat", "a cat here");
+        assert_eq!(mark(&link, &word("cat")).matches(style::REVERSE_OFF).count(), 1);
+    }
 }

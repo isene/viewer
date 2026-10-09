@@ -2,7 +2,7 @@
 
 <img src="img/viewer.svg" align="left" width="150" height="150">
 
-![Version](https://img.shields.io/badge/version-0.1.3-blue) ![Rust](https://img.shields.io/badge/language-Rust-f74c00) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
+![Version](https://img.shields.io/badge/version-0.1.5-blue) ![Rust](https://img.shields.io/badge/language-Rust-f74c00) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-blue) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
 
 A universal read-only file viewer for the terminal. Point it at almost any file
 — spreadsheet, document, slide deck, PDF, image, code — and it renders a clean
@@ -78,6 +78,8 @@ viewer              # no file → browse with pointer
 | `j k` / arrows | scroll |
 | `g` `G` | top / bottom |
 | `PgUp` `PgDn` | page |
+| `/` | find a word: it is marked in the text, and the view goes to it |
+| `n` `N` | the next / previous row with the word |
 | `e` `Enter` | edit — launch the right editor (slide decks open the Claude session) |
 | `Ctrl+A` | edit with Claude — full session (uses the file-type skill) |
 | `x` | open externally (xdg-open) |
