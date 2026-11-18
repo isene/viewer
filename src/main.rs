@@ -186,7 +186,7 @@ impl App {
         self.top.say(&top);
         let edit_hint = if handler.edit.is_some() { "e edit" } else { "e open" };
         let foot = if self.status.is_empty() {
-            format!(" j/k scroll  / find  {}  C-a Claude  x open  o browse  ? keys  q quit   viewer {}", edit_hint, VERSION)
+            format!(" j/k scroll  / find  {}  C-a Claude  x open  o browse  ? keys  q quit   {}", edit_hint, crust::version_tag("viewer", VERSION))
         } else {
             format!(" {}", self.status)
         };
